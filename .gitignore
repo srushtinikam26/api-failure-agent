@@ -1,0 +1,5 @@
+venv/
+.env
+api_logs.json
+__pycache__/
+*.pyc
