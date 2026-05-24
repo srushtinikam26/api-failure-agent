@@ -32,12 +32,12 @@ while True:
                 st.subheader("📊 Recent API Logs (last 20 requests)")
                 # Show most relevant columns
                 display_df = df[['timestamp', 'method', 'endpoint', 'status_code', 'latency_ms']].copy()
-                # Highlight error rows (status >= 400) in red
+                # Highlight error rows (status >= 400) in red - FIXED: applymap -> map
                 def color_status(val):
                     if val >= 400:
                         return 'background-color: #ffcccc'
                     return ''
-                st.dataframe(display_df.style.applymap(color_status, subset=['status_code']))
+                st.dataframe(display_df.style.map(color_status, subset=['status_code']))
                 
                 # Simple metrics
                 error_rate = (df['status_code'] >= 400).mean()
@@ -55,10 +55,9 @@ while True:
                     error_log = inject_error_log("/payment", 500, 2000)
                     # Add it directly to the global log_queue from anomaly_detector
                     log_queue.append(error_log)
-                    # Keep only last 20 logs
+                    # Keep only last 20 logs (load_recent_logs handles trimming, but we can trim here too)
                     if len(log_queue) > 20:
-                        # Remove oldest if needed (handled in load_recent_logs, but we can trim here too)
-                        pass
+                        log_queue.pop(0)
                     st.success("✅ Injected a 500 error on /payment! Wait 5 seconds to see anomaly detected.")
                 
                 if anomalies:
