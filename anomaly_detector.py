@@ -1,20 +1,18 @@
 import pandas as pd
-import json
-import os
+from utils import generate_log
 
-LOG_FILE = "api_logs.json"
-WINDOW_SIZE = 20   # analyze last 20 logs
+# Initialize with 20 logs
+log_queue = [generate_log() for _ in range(20)]
+
+WINDOW_SIZE = 20
 
 def load_recent_logs(n=WINDOW_SIZE):
-    if not os.path.exists(LOG_FILE):
-        return pd.DataFrame()
-    with open(LOG_FILE, "r") as f:
-        lines = f.readlines()
-    if len(lines) == 0:
-        return pd.DataFrame()
-    recent = lines[-n:]
-    data = [json.loads(line) for line in recent]
-    return pd.DataFrame(data)
+    global log_queue
+    # Add a new log and keep only the last 20
+    log_queue.append(generate_log())
+    if len(log_queue) > WINDOW_SIZE:
+        log_queue = log_queue[-WINDOW_SIZE:]
+    return pd.DataFrame(log_queue)
 
 def detect_anomalies(df):
     if df.empty:
@@ -42,5 +40,4 @@ def detect_anomalies(df):
     return anomalies if anomalies else None
 
 def get_sample_logs_for_llm(df):
-    # Return last 5 logs as list of dicts
     return df.tail(5).to_dict(orient='records')
