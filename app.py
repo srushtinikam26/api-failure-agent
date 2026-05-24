@@ -12,7 +12,6 @@ st.markdown("Monitors API logs in real-time and alerts on failures with AI-power
 # Auto-refresh every 5 seconds
 placeholder = st.empty()
 
-# To avoid repeated API calls on every rerun, we'll store the last explanation in session state
 if "last_explanation" not in st.session_state:
     st.session_state.last_explanation = None
 if "last_anomalies" not in st.session_state:
@@ -30,16 +29,18 @@ while True:
             
             with col1:
                 st.subheader("📊 Recent API Logs (last 20 requests)")
-                # Show most relevant columns
                 display_df = df[['timestamp', 'method', 'endpoint', 'status_code', 'latency_ms']].copy()
-                # Highlight error rows (status >= 400) in red - FIXED: applymap -> map
-                def color_status(val):
-                    if val >= 400:
-                        return 'background-color: #ffcccc'
-                    return ''
-                st.dataframe(display_df.style.map(color_status, subset=['status_code']))
                 
-                # Simple metrics
+                # HIGHLIGHTING FIX: Works on all pandas versions
+                def highlight_errors(row):
+                    if row['status_code'] >= 400:
+                        return ['background-color: #ffcccc'] * len(row)
+                    else:
+                        return [''] * len(row)
+                
+                styled_df = display_df.style.apply(highlight_errors, axis=1)
+                st.dataframe(styled_df)
+                
                 error_rate = (df['status_code'] >= 400).mean()
                 avg_latency = df['latency_ms'].mean()
                 col1a, col1b = st.columns(2)
@@ -49,13 +50,9 @@ while True:
             with col2:
                 st.subheader("🚨 Anomaly Detection")
                 
-                # --- DEMO BUTTON: Simulate a failure (injects directly into in-memory queue) ---
                 if st.button("🎮 Simulate API Failure (for demo)", use_container_width=True):
-                    # Create an error log entry
                     error_log = inject_error_log("/payment", 500, 2000)
-                    # Add it directly to the global log_queue from anomaly_detector
                     log_queue.append(error_log)
-                    # Keep only last 20 logs (load_recent_logs handles trimming, but we can trim here too)
                     if len(log_queue) > 20:
                         log_queue.pop(0)
                     st.success("✅ Injected a 500 error on /payment! Wait 5 seconds to see anomaly detected.")
@@ -64,7 +61,6 @@ while True:
                     for a in anomalies:
                         st.error(a)
                     
-                    # Show AI explanation if anomalies changed or user clicks button
                     if st.button("🤖 Run AI Debug Analysis", key="debug_btn", use_container_width=True):
                         with st.spinner("🧠 Asking AI to analyze anomalies..."):
                             recent = get_sample_logs_for_llm(df)
@@ -77,9 +73,8 @@ while True:
                         st.text(st.session_state.last_explanation)
                 else:
                     st.success("✅ No anomalies detected in last 20 requests")
-                    # Clear previous explanation if any
                     st.session_state.last_explanation = None
                     st.session_state.last_anomalies = None
     
-    time.sleep(5)  # refresh every 5 seconds
-    st.rerun()  # Force rerun to refresh
+    time.sleep(5)
+    st.rerun()
